@@ -9,3 +9,6 @@ uploads/
 .next/
 no-backdoor-deploy.tar.gz
 test.txt
+gh.tar.gz
+gh_*.zip
+gh_*/
