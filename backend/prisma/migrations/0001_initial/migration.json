@@ -1,0 +1,89 @@
+{
+  "version": "5.22.0",
+  "steps": [
+    {
+      "tag": "CreateEnum",
+      "enum": "user_role",
+      "values": ["admin", "reviewer", "viewer"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "system_type",
+      "values": ["api", "web", "mobile", "database", "infrastructure", "library", "other"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "system_status",
+      "values": ["verified", "pending", "threat", "unknown"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "evidence_type",
+      "values": ["code_scan", "audit_report", "penetration_test", "config_review", "dependency_check", "static_analysis", "dynamic_analysis"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "evidence_status",
+      "values": ["pending", "processing", "verified", "failed"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "evidence_priority",
+      "values": ["low", "medium", "high"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "history_event_type",
+      "values": ["scan_initiated", "scan_completed", "review_started", "review_completed", "threat_detected", "resolved"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "task_type",
+      "values": ["code_scan", "audit_report", "penetration_test", "config_review", "dependency_check", "static_analysis", "dynamic_analysis"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "task_priority",
+      "values": ["low", "normal", "high", "critical"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "task_status",
+      "values": ["pending", "processing", "completed", "failed", "cancelled"]
+    },
+    {
+      "tag": "CreateEnum",
+      "enum": "log_level",
+      "values": ["info", "warn", "error", "success"]
+    },
+    {
+      "tag": "CreateTable",
+      "table": "users"
+    },
+    {
+      "tag": "CreateTable",
+      "table": "systems"
+    },
+    {
+      "tag": "CreateTable",
+      "table": "evidence_uploads"
+    },
+    {
+      "tag": "CreateTable",
+      "table": "verification_history"
+    },
+    {
+      "tag": "CreateTable",
+      "table": "verification_tasks"
+    },
+    {
+      "tag": "CreateTable",
+      "table": "task_logs"
+    },
+    {
+      "tag": "CreateTable",
+      "table": "activity_log"
+    }
+  ],
+  "created_at": "2026-05-04T13:00:00.000Z"
+}

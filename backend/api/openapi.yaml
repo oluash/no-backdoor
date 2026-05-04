@@ -1,0 +1,2969 @@
+openapi: 3.0.3
+info:
+  title: No-Backdoor System Architecture API
+  description: |
+    Security verification platform backend API. Provides endpoints for dashboard metrics,
+    evidence upload, system portfolio management, and verification queue operations.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api@nobackdoor.local
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://api.nobackdoor.local/v1
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ============================================================
+  # Auth & Users
+  # ============================================================
+  /auth/register:
+    post:
+      tags: [Auth & Users]
+      summary: Register a new user
+      description: Create a new user account with email, password, and profile details.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: "user@example.com"
+              password: "SecurePass123!"
+              firstName: "Jane"
+              lastName: "Doe"
+              role: "analyst"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                success: true
+                data:
+                  user:
+                    id: "usr_abc123"
+                    email: "user@example.com"
+                    firstName: "Jane"
+                    lastName: "Doe"
+                    role: "analyst"
+                    isActive: true
+                    createdAt: "2024-01-15T09:30:00Z"
+                    updatedAt: "2024-01-15T09:30:00Z"
+                  token:
+                    accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+                    expiresIn: 3600
+                meta:
+                  timestamp: "2024-01-15T09:30:00Z"
+                  requestId: "req_xyz789"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                success: false
+                error:
+                  code: "CONFLICT"
+                  message: "Email already registered"
+                  details: "A user with this email address already exists."
+                  status: 409
+                meta:
+                  timestamp: "2024-01-15T09:30:00Z"
+                  requestId: "req_xyz789"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/login:
+    post:
+      tags: [Auth & Users]
+      summary: User login
+      description: Authenticate with email and password to receive JWT tokens.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "user@example.com"
+              password: "SecurePass123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                success: true
+                data:
+                  user:
+                    id: "usr_abc123"
+                    email: "user@example.com"
+                    firstName: "Jane"
+                    lastName: "Doe"
+                    role: "analyst"
+                    isActive: true
+                    createdAt: "2024-01-10T08:00:00Z"
+                    updatedAt: "2024-01-15T14:20:00Z"
+                  token:
+                    accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+                    expiresIn: 3600
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_abc456"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                success: false
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Invalid email or password"
+                  status: 401
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_abc456"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/refresh:
+    post:
+      tags: [Auth & Users]
+      summary: Refresh access token
+      description: Use a refresh token to obtain a new access token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+                  description: The refresh token obtained during login
+                  example: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required: [accessToken, expiresIn]
+                    properties:
+                      accessToken:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      refreshToken:
+                        type: string
+                        example: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+                      expiresIn:
+                        type: integer
+                        description: Token expiry in seconds
+                        example: 3600
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                success: false
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Refresh token expired"
+                  status: 401
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_def789"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/me:
+    get:
+      tags: [Auth & Users]
+      summary: Get current user profile
+      description: Retrieve the authenticated user's profile information.
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "usr_abc123"
+                  email: "user@example.com"
+                  firstName: "Jane"
+                  lastName: "Doe"
+                  role: "analyst"
+                  avatar: "https://cdn.example.com/avatars/usr_abc123.png"
+                  isActive: true
+                  lastLoginAt: "2024-01-15T14:20:00Z"
+                  createdAt: "2024-01-10T08:00:00Z"
+                  updatedAt: "2024-01-15T14:20:00Z"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_ghi012"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Auth & Users]
+      summary: Update user profile
+      description: Update the authenticated user's profile information.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: "Jane"
+                lastName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: "Smith"
+                avatar:
+                  type: string
+                  format: uri
+                  nullable: true
+                  example: "https://cdn.example.com/avatars/new.png"
+            minProperties: 1
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "usr_abc123"
+                  email: "user@example.com"
+                  firstName: "Jane"
+                  lastName: "Smith"
+                  role: "analyst"
+                  avatar: "https://cdn.example.com/avatars/new.png"
+                  isActive: true
+                  lastLoginAt: "2024-01-15T14:20:00Z"
+                  createdAt: "2024-01-10T08:00:00Z"
+                  updatedAt: "2024-01-15T16:45:00Z"
+                meta:
+                  timestamp: "2024-01-15T16:45:00Z"
+                  requestId: "req_jkl345"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============================================================
+  # Dashboard / Metrics
+  # ============================================================
+  /metrics/summary:
+    get:
+      tags: [Dashboard & Metrics]
+      summary: Get dashboard summary metrics
+      description: Retrieve aggregated counts for dashboard summary cards.
+      responses:
+        '200':
+          description: Summary metrics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DashboardMetrics'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  totalSystems: 142
+                  verifiedSystems: 89
+                  pendingVerifications: 23
+                  failedVerifications: 12
+                  totalEvidence: 847
+                  queueTasks: 18
+                  queueCompletedToday: 7
+                  queueFailedToday: 2
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_mno678"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /metrics/trends:
+    get:
+      tags: [Dashboard & Metrics]
+      summary: Get 30-day verification trends
+      description: Retrieve daily verification counts for the last 30 days for area chart visualization.
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 90
+            default: 30
+          description: Number of days to include in the trend
+      responses:
+        '200':
+          description: Trend data retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [trends, periodStart, periodEnd]
+                    properties:
+                      trends:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TrendDataPoint'
+                      periodStart:
+                        type: string
+                        format: date
+                      periodEnd:
+                        type: string
+                        format: date
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  trends:
+                    - date: "2024-12-17"
+                      total: 12
+                      passed: 8
+                      failed: 2
+                      pending: 2
+                    - date: "2024-12-18"
+                      total: 15
+                      passed: 10
+                      failed: 3
+                      pending: 2
+                  periodStart: "2024-12-17"
+                  periodEnd: "2025-01-15"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_pqr901"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /metrics/status:
+    get:
+      tags: [Dashboard & Metrics]
+      summary: Get system status distribution
+      description: Retrieve the distribution of systems by verification status for donut chart.
+      responses:
+        '200':
+          description: Status distribution retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [distribution, total]
+                    properties:
+                      distribution:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StatusDistribution'
+                      total:
+                        type: integer
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  distribution:
+                    - status: "verified"
+                      label: "Verified"
+                      count: 89
+                      percentage: 62.7
+                    - status: "pending"
+                      label: "Pending"
+                      count: 23
+                      percentage: 16.2
+                    - status: "failed"
+                      label: "Failed"
+                      count: 12
+                      percentage: 8.5
+                    - status: "not_started"
+                      label: "Not Started"
+                      count: 18
+                      percentage: 12.7
+                  total: 142
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_stu234"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /activity/recent:
+    get:
+      tags: [Dashboard & Metrics]
+      summary: Get recent activity feed
+      description: Retrieve a paginated list of recent platform activities.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [verification, upload, system, queue, user]
+          description: Filter by activity type
+      responses:
+        '200':
+          description: Recent activity retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ActivityItem'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                data:
+                  - id: "act_001"
+                    type: "verification"
+                    title: "System 'Firewall-v3' verified"
+                    description: "Verification completed with 0 issues found"
+                    userId: "usr_abc123"
+                    userName: "Jane Doe"
+                    systemId: "sys_fw3"
+                    systemName: "Firewall-v3"
+                    createdAt: "2024-01-15T14:18:00Z"
+                  - id: "act_002"
+                    type: "upload"
+                    title: "Evidence uploaded"
+                    description: "3 files uploaded for 'Payment Gateway'"
+                    userId: "usr_def456"
+                    userName: "John Smith"
+                    systemId: "sys_pg1"
+                    systemName: "Payment Gateway"
+                    createdAt: "2024-01-15T13:45:00Z"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_vwx567"
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 156
+                    totalPages: 8
+                    hasNext: true
+                    hasPrev: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+
+  # ============================================================
+  # Evidence Upload
+  # ============================================================
+  /evidence/upload:
+    post:
+      tags: [Evidence Upload]
+      summary: Upload evidence files
+      description: |
+        Upload one or more evidence files via multipart form data.
+        Supports images, documents, and archives up to 100MB each.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Evidence files to upload (max 10 per request, 100MB each)
+                systemId:
+                  type: string
+                  description: Optional system to associate the evidence with
+                  example: "sys_fw3"
+                description:
+                  type: string
+                  maxLength: 1000
+                  description: Description of the uploaded evidence
+                  example: "Source code review documentation for v2.4.1"
+                tags:
+                  type: string
+                  description: Comma-separated list of tags
+                  example: "source-code,v2.4.1,review"
+            encoding:
+              files:
+                style: form
+                explode: true
+      responses:
+        '201':
+          description: Files uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [uploads]
+                    properties:
+                      uploads:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/EvidenceUpload'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  uploads:
+                    - id: "evd_abc123"
+                      fileName: "source-review.pdf"
+                      originalName: "source-review.pdf"
+                      mimeType: "application/pdf"
+                      size: 2457600
+                      status: "completed"
+                      systemId: "sys_fw3"
+                      systemName: "Firewall-v3"
+                      description: "Source code review documentation"
+                      tags: ["source-code", "v2.4.1", "review"]
+                      uploadedBy: "usr_abc123"
+                      uploaderName: "Jane Doe"
+                      createdAt: "2024-01-15T14:20:00Z"
+                      updatedAt: "2024-01-15T14:20:00Z"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_yza890"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                success: false
+                error:
+                  code: "PAYLOAD_TOO_LARGE"
+                  message: "File exceeds maximum size limit"
+                  details: "Maximum file size is 100MB"
+                  status: 413
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_yza890"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /evidence:
+    get:
+      tags: [Evidence Upload]
+      summary: List recent uploads
+      description: Retrieve a paginated, filterable list of evidence uploads.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+          description: Filter by upload status
+        - name: systemId
+          in: query
+          schema:
+            type: string
+          description: Filter by associated system
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          description: Search by file name or description
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, fileName, size, status]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Evidence list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EvidenceUpload'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                data:
+                  - id: "evd_abc123"
+                    fileName: "source-review.pdf"
+                    originalName: "source-review.pdf"
+                    mimeType: "application/pdf"
+                    size: 2457600
+                    status: "completed"
+                    systemId: "sys_fw3"
+                    systemName: "Firewall-v3"
+                    description: "Source code review documentation"
+                    tags: ["source-code", "v2.4.1"]
+                    uploadedBy: "usr_abc123"
+                    uploaderName: "Jane Doe"
+                    createdAt: "2024-01-15T14:20:00Z"
+                    updatedAt: "2024-01-15T14:20:00Z"
+                  - id: "evd_def456"
+                    fileName: "network-scan.zip"
+                    originalName: "network-scan-results.zip"
+                    mimeType: "application/zip"
+                    size: 5242880
+                    status: "completed"
+                    systemId: "sys_pg1"
+                    systemName: "Payment Gateway"
+                    description: "Network vulnerability scan results"
+                    tags: ["scan", "network"]
+                    uploadedBy: "usr_def456"
+                    uploaderName: "John Smith"
+                    createdAt: "2024-01-14T11:00:00Z"
+                    updatedAt: "2024-01-14T11:00:00Z"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_bcd123"
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 847
+                    totalPages: 43
+                    hasNext: true
+                    hasPrev: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /evidence/{id}:
+    get:
+      tags: [Evidence Upload]
+      summary: Get upload detail
+      description: Retrieve details of a single evidence upload.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "evd_abc123"
+      responses:
+        '200':
+          description: Upload detail retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/EvidenceUpload'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "evd_abc123"
+                  fileName: "source-review.pdf"
+                  originalName: "source-review.pdf"
+                  mimeType: "application/pdf"
+                  size: 2457600
+                  status: "completed"
+                  systemId: "sys_fw3"
+                  systemName: "Firewall-v3"
+                  description: "Source code review documentation for v2.4.1"
+                  tags: ["source-code", "v2.4.1", "review"]
+                  uploadedBy: "usr_abc123"
+                  uploaderName: "Jane Doe"
+                  downloadUrl: "https://cdn.example.com/evidence/evd_abc123.pdf"
+                  createdAt: "2024-01-15T14:20:00Z"
+                  updatedAt: "2024-01-15T14:20:00Z"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_cde234"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Evidence Upload]
+      summary: Delete an upload
+      description: Remove an evidence upload and its associated file.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "evd_abc123"
+      responses:
+        '204':
+          description: Upload deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============================================================
+  # Portfolio (Systems)
+  # ============================================================
+  /systems:
+    get:
+      tags: [Portfolio]
+      summary: List all systems
+      description: |
+        Retrieve a paginated, searchable, and filterable list of systems.
+        Supports filtering by status, type, and free-text search.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          description: Search by name, description, or owner
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [verified, pending, failed, not_started, in_progress]
+          description: Filter by verification status
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [web_app, mobile_app, api, database, network, desktop, cloud_service, embedded, other]
+          description: Filter by system type
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, createdAt, updatedAt, status, lastVerifiedAt]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: ownerId
+          in: query
+          schema:
+            type: string
+          description: Filter by system owner
+      responses:
+        '200':
+          description: Systems list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/System'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                data:
+                  - id: "sys_fw3"
+                    name: "Firewall-v3"
+                    description: "Next-gen firewall with ML-based threat detection"
+                    type: "network"
+                    status: "verified"
+                    ownerId: "usr_abc123"
+                    ownerName: "Jane Doe"
+                    version: "3.2.1"
+                    lastVerifiedAt: "2024-01-15T10:00:00Z"
+                    evidenceCount: 12
+                    tags: ["security", "network", "ml"]
+                    createdAt: "2023-06-01T00:00:00Z"
+                    updatedAt: "2024-01-15T10:00:00Z"
+                  - id: "sys_pg1"
+                    name: "Payment Gateway"
+                    description: "PCI-DSS compliant payment processing service"
+                    type: "api"
+                    status: "pending"
+                    ownerId: "usr_def456"
+                    ownerName: "John Smith"
+                    version: "2.0.0"
+                    lastVerifiedAt: null
+                    evidenceCount: 5
+                    tags: ["financial", "pci-dss", "api"]
+                    createdAt: "2023-08-15T00:00:00Z"
+                    updatedAt: "2024-01-10T16:30:00Z"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_def345"
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 142
+                    totalPages: 8
+                    hasNext: true
+                    hasPrev: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Portfolio]
+      summary: Create new system
+      description: Add a new system to the portfolio catalog.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSystemRequest'
+            example:
+              name: "Auth Service v2"
+              description: "OAuth 2.0 and SAML authentication microservice"
+              type: "api"
+              ownerId: "usr_abc123"
+              version: "2.1.0"
+              tags: ["auth", "oauth", "saml"]
+              metadata:
+                repository: "https://git.example.com/auth-service"
+                documentation: "https://docs.example.com/auth"
+      responses:
+        '201':
+          description: System created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/System'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "sys_as2"
+                  name: "Auth Service v2"
+                  description: "OAuth 2.0 and SAML authentication microservice"
+                  type: "api"
+                  status: "not_started"
+                  ownerId: "usr_abc123"
+                  ownerName: "Jane Doe"
+                  version: "2.1.0"
+                  lastVerifiedAt: null
+                  evidenceCount: 0
+                  tags: ["auth", "oauth", "saml"]
+                  metadata:
+                    repository: "https://git.example.com/auth-service"
+                    documentation: "https://docs.example.com/auth"
+                  createdAt: "2024-01-15T14:25:00Z"
+                  updatedAt: "2024-01-15T14:25:00Z"
+                meta:
+                  timestamp: "2024-01-15T14:25:00Z"
+                  requestId: "req_efg456"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: System name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                success: false
+                error:
+                  code: "CONFLICT"
+                  message: "System name already exists"
+                  status: 409
+                meta:
+                  timestamp: "2024-01-15T14:25:00Z"
+                  requestId: "req_efg456"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+
+  /systems/{id}:
+    get:
+      tags: [Portfolio]
+      summary: Get system detail
+      description: |
+        Retrieve detailed information about a single system, including
+        verification history summary and linked evidence files.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "sys_fw3"
+      responses:
+        '200':
+          description: System detail retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/System'
+                      - type: object
+                        properties:
+                          verificationHistory:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/VerificationHistory'
+                          evidenceFiles:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/EvidenceFile'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "sys_fw3"
+                  name: "Firewall-v3"
+                  description: "Next-gen firewall with ML-based threat detection"
+                  type: "network"
+                  status: "verified"
+                  ownerId: "usr_abc123"
+                  ownerName: "Jane Doe"
+                  version: "3.2.1"
+                  lastVerifiedAt: "2024-01-15T10:00:00Z"
+                  evidenceCount: 12
+                  tags: ["security", "network", "ml"]
+                  metadata:
+                    repository: "https://git.example.com/firewall"
+                    documentation: "https://docs.example.com/firewall"
+                  createdAt: "2023-06-01T00:00:00Z"
+                  updatedAt: "2024-01-15T10:00:00Z"
+                  verificationHistory:
+                    - id: "vrf_001"
+                      systemId: "sys_fw3"
+                      status: "passed"
+                      verifierId: "usr_abc123"
+                      verifierName: "Jane Doe"
+                      startedAt: "2024-01-15T08:00:00Z"
+                      completedAt: "2024-01-15T10:00:00Z"
+                      findingsCount: 0
+                      summary: "All checks passed. No issues detected."
+                    - id: "vrf_002"
+                      systemId: "sys_fw3"
+                      status: "passed"
+                      verifierId: "usr_def456"
+                      verifierName: "John Smith"
+                      startedAt: "2023-12-10T09:00:00Z"
+                      completedAt: "2023-12-10T11:30:00Z"
+                      findingsCount: 2
+                      summary: "2 minor findings, both resolved."
+                  evidenceFiles:
+                    - id: "evd_abc123"
+                      fileName: "source-review.pdf"
+                      mimeType: "application/pdf"
+                      size: 2457600
+                      uploadedBy: "Jane Doe"
+                      uploadedAt: "2024-01-15T14:20:00Z"
+                      downloadUrl: "https://cdn.example.com/evidence/evd_abc123.pdf"
+                    - id: "evd_ghi789"
+                      fileName: "config-audit.xlsx"
+                      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      size: 180224
+                      uploadedBy: "John Smith"
+                      uploadedAt: "2024-01-12T10:00:00Z"
+                      downloadUrl: "https://cdn.example.com/evidence/evd_ghi789.xlsx"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_fgh567"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Portfolio]
+      summary: Update system
+      description: Update an existing system's information.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "sys_fw3"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSystemRequest'
+            example:
+              name: "Firewall-v3 Pro"
+              description: "Updated next-gen firewall with enhanced ML detection"
+              version: "3.3.0"
+              tags: ["security", "network", "ml", "enterprise"]
+      responses:
+        '200':
+          description: System updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/System'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "sys_fw3"
+                  name: "Firewall-v3 Pro"
+                  description: "Updated next-gen firewall with enhanced ML detection"
+                  type: "network"
+                  status: "verified"
+                  ownerId: "usr_abc123"
+                  ownerName: "Jane Doe"
+                  version: "3.3.0"
+                  lastVerifiedAt: "2024-01-15T10:00:00Z"
+                  evidenceCount: 12
+                  tags: ["security", "network", "ml", "enterprise"]
+                  createdAt: "2023-06-01T00:00:00Z"
+                  updatedAt: "2024-01-15T16:30:00Z"
+                meta:
+                  timestamp: "2024-01-15T16:30:00Z"
+                  requestId: "req_hij678"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Portfolio]
+      summary: Delete system
+      description: Remove a system and all its associated data.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "sys_fw3"
+      responses:
+        '204':
+          description: System deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /systems/{id}/history:
+    get:
+      tags: [Portfolio]
+      summary: Get verification history
+      description: Retrieve the complete verification history timeline for a system.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "sys_fw3"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Verification history retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VerificationHistory'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                data:
+                  - id: "vrf_001"
+                    systemId: "sys_fw3"
+                    systemName: "Firewall-v3"
+                    status: "passed"
+                    verifierId: "usr_abc123"
+                    verifierName: "Jane Doe"
+                    startedAt: "2024-01-15T08:00:00Z"
+                    completedAt: "2024-01-15T10:00:00Z"
+                    duration: 7200
+                    findingsCount: 0
+                    summary: "All checks passed. No issues detected."
+                    checkTypes: ["static-analysis", "dependency-scan", "config-audit"]
+                  - id: "vrf_002"
+                    systemId: "sys_fw3"
+                    systemName: "Firewall-v3"
+                    status: "passed"
+                    verifierId: "usr_def456"
+                    verifierName: "John Smith"
+                    startedAt: "2023-12-10T09:00:00Z"
+                    completedAt: "2023-12-10T11:30:00Z"
+                    duration: 9000
+                    findingsCount: 2
+                    summary: "2 minor findings, both resolved."
+                    checkTypes: ["static-analysis", "penetration-test"]
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_ijk789"
+                  pagination:
+                    page: 1
+                    limit: 10
+                    total: 8
+                    totalPages: 1
+                    hasNext: false
+                    hasPrev: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /systems/{id}/evidence:
+    get:
+      tags: [Portfolio]
+      summary: Get linked evidence files
+      description: Retrieve all evidence files linked to a specific system.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "sys_fw3"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Evidence files retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EvidenceFile'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                data:
+                  - id: "evd_abc123"
+                    fileName: "source-review.pdf"
+                    mimeType: "application/pdf"
+                    size: 2457600
+                    description: "Source code review documentation"
+                    uploadedBy: "Jane Doe"
+                    uploadedAt: "2024-01-15T14:20:00Z"
+                    downloadUrl: "https://cdn.example.com/evidence/evd_abc123.pdf"
+                  - id: "evd_ghi789"
+                    fileName: "config-audit.xlsx"
+                    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    size: 180224
+                    description: "Configuration audit results"
+                    uploadedBy: "John Smith"
+                    uploadedAt: "2024-01-12T10:00:00Z"
+                    downloadUrl: "https://cdn.example.com/evidence/evd_ghi789.xlsx"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_klm890"
+                  pagination:
+                    page: 1
+                    limit: 10
+                    total: 12
+                    totalPages: 2
+                    hasNext: true
+                    hasPrev: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+
+  # ============================================================
+  # Verification Queue
+  # ============================================================
+  /queue/tasks:
+    get:
+      tags: [Verification Queue]
+      summary: List queue tasks
+      description: Retrieve a paginated, filterable list of verification queue tasks.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, completed, failed, cancelled]
+          description: Filter by task status
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, normal, high, critical]
+          description: Filter by priority level
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          description: Search by task name or system name
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, priority, status, scheduledAt]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: assigneeId
+          in: query
+          schema:
+            type: string
+          description: Filter by assigned user
+      responses:
+        '200':
+          description: Task list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QueueTask'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                data:
+                  - id: "task_001"
+                    name: "Verify Payment Gateway v2.0"
+                    systemId: "sys_pg1"
+                    systemName: "Payment Gateway"
+                    status: "running"
+                    priority: "high"
+                    assigneeId: "usr_abc123"
+                    assigneeName: "Jane Doe"
+                    progress: 45
+                    checkTypes: ["static-analysis", "dependency-scan", "config-audit"]
+                    createdAt: "2024-01-15T13:00:00Z"
+                    updatedAt: "2024-01-15T14:20:00Z"
+                    startedAt: "2024-01-15T13:05:00Z"
+                    scheduledAt: null
+                    completedAt: null
+                    estimatedDuration: 3600
+                  - id: "task_002"
+                    name: "Audit Auth Service"
+                    systemId: "sys_as2"
+                    systemName: "Auth Service v2"
+                    status: "pending"
+                    priority: "normal"
+                    assigneeId: null
+                    assigneeName: null
+                    progress: 0
+                    checkTypes: ["static-analysis", "penetration-test"]
+                    createdAt: "2024-01-15T12:00:00Z"
+                    updatedAt: "2024-01-15T12:00:00Z"
+                    startedAt: null
+                    scheduledAt: "2024-01-15T15:00:00Z"
+                    completedAt: null
+                    estimatedDuration: 7200
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_mno901"
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 18
+                    totalPages: 1
+                    hasNext: false
+                    hasPrev: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Verification Queue]
+      summary: Create verification task
+      description: Add a new verification task to the queue.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+            example:
+              name: "Full Security Audit"
+              systemId: "sys_as2"
+              priority: "high"
+              checkTypes: ["static-analysis", "dependency-scan", "config-audit", "penetration-test"]
+              scheduledAt: "2024-01-16T09:00:00Z"
+              assigneeId: "usr_abc123"
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/QueueTask'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "task_003"
+                  name: "Full Security Audit"
+                  systemId: "sys_as2"
+                  systemName: "Auth Service v2"
+                  status: "pending"
+                  priority: "high"
+                  assigneeId: "usr_abc123"
+                  assigneeName: "Jane Doe"
+                  progress: 0
+                  checkTypes: ["static-analysis", "dependency-scan", "config-audit", "penetration-test"]
+                  createdAt: "2024-01-15T14:25:00Z"
+                  updatedAt: "2024-01-15T14:25:00Z"
+                  startedAt: null
+                  scheduledAt: "2024-01-16T09:00:00Z"
+                  completedAt: null
+                  estimatedDuration: 7200
+                meta:
+                  timestamp: "2024-01-15T14:25:00Z"
+                  requestId: "req_nop012"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queue/tasks/{id}:
+    get:
+      tags: [Verification Queue]
+      summary: Get task detail
+      description: Retrieve detailed information about a single queue task.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "task_001"
+      responses:
+        '200':
+          description: Task detail retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/QueueTask'
+                      - type: object
+                        properties:
+                          logs:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/TaskLog'
+                          errorDetails:
+                            type: string
+                            nullable: true
+                            description: Error details if task failed
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "task_001"
+                  name: "Verify Payment Gateway v2.0"
+                  systemId: "sys_pg1"
+                  systemName: "Payment Gateway"
+                  status: "running"
+                  priority: "high"
+                  assigneeId: "usr_abc123"
+                  assigneeName: "Jane Doe"
+                  progress: 45
+                  checkTypes: ["static-analysis", "dependency-scan", "config-audit"]
+                  createdAt: "2024-01-15T13:00:00Z"
+                  updatedAt: "2024-01-15T14:20:00Z"
+                  startedAt: "2024-01-15T13:05:00Z"
+                  scheduledAt: null
+                  completedAt: null
+                  estimatedDuration: 3600
+                  errorDetails: null
+                  logs:
+                    - id: "log_001"
+                      taskId: "task_001"
+                      level: "info"
+                      message: "Task initialization complete"
+                      timestamp: "2024-01-15T13:05:01Z"
+                      metadata:
+                        step: "init"
+                    - id: "log_002"
+                      taskId: "task_001"
+                      level: "info"
+                      message: "Starting static analysis phase"
+                      timestamp: "2024-01-15T13:05:15Z"
+                      metadata:
+                        step: "static-analysis"
+                        filesScanned: 1240
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_pqr123"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Verification Queue]
+      summary: Update task
+      description: Update task properties such as assignee, priority, or schedule.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "task_001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+            example:
+              priority: "critical"
+              assigneeId: "usr_def456"
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/QueueTask'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "task_001"
+                  name: "Verify Payment Gateway v2.0"
+                  systemId: "sys_pg1"
+                  systemName: "Payment Gateway"
+                  status: "running"
+                  priority: "critical"
+                  assigneeId: "usr_def456"
+                  assigneeName: "John Smith"
+                  progress: 45
+                  checkTypes: ["static-analysis", "dependency-scan", "config-audit"]
+                  createdAt: "2024-01-15T13:00:00Z"
+                  updatedAt: "2024-01-15T14:30:00Z"
+                  startedAt: "2024-01-15T13:05:00Z"
+                  scheduledAt: null
+                  completedAt: null
+                  estimatedDuration: 3600
+                meta:
+                  timestamp: "2024-01-15T14:30:00Z"
+                  requestId: "req_rst234"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Verification Queue]
+      summary: Delete task
+      description: Remove a task from the queue.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "task_001"
+      responses:
+        '204':
+          description: Task deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queue/tasks/{id}/restart:
+    post:
+      tags: [Verification Queue]
+      summary: Restart a failed task
+      description: Restart a previously failed task from the beginning.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "task_001"
+      responses:
+        '200':
+          description: Task restarted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/QueueTask'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "task_001"
+                  name: "Verify Payment Gateway v2.0"
+                  systemId: "sys_pg1"
+                  systemName: "Payment Gateway"
+                  status: "pending"
+                  priority: "high"
+                  assigneeId: "usr_abc123"
+                  assigneeName: "Jane Doe"
+                  progress: 0
+                  checkTypes: ["static-analysis", "dependency-scan", "config-audit"]
+                  createdAt: "2024-01-15T13:00:00Z"
+                  updatedAt: "2024-01-15T14:35:00Z"
+                  startedAt: null
+                  scheduledAt: null
+                  completedAt: null
+                  estimatedDuration: 3600
+                meta:
+                  timestamp: "2024-01-15T14:35:00Z"
+                  requestId: "req_tuv345"
+        '400':
+          description: Cannot restart a non-failed task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                success: false
+                error:
+                  code: "BAD_REQUEST"
+                  message: "Only failed tasks can be restarted"
+                  status: 400
+                meta:
+                  timestamp: "2024-01-15T14:35:00Z"
+                  requestId: "req_tuv345"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queue/tasks/{id}/cancel:
+    post:
+      tags: [Verification Queue]
+      summary: Cancel a pending task
+      description: Cancel a task that is pending or scheduled (not yet running).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "task_002"
+      responses:
+        '200':
+          description: Task cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/QueueTask'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  id: "task_002"
+                  name: "Audit Auth Service"
+                  systemId: "sys_as2"
+                  systemName: "Auth Service v2"
+                  status: "cancelled"
+                  priority: "normal"
+                  assigneeId: null
+                  assigneeName: null
+                  progress: 0
+                  checkTypes: ["static-analysis", "penetration-test"]
+                  createdAt: "2024-01-15T12:00:00Z"
+                  updatedAt: "2024-01-15T14:40:00Z"
+                  startedAt: null
+                  scheduledAt: "2024-01-15T15:00:00Z"
+                  completedAt: null
+                  estimatedDuration: 7200
+                meta:
+                  timestamp: "2024-01-15T14:40:00Z"
+                  requestId: "req_vwx456"
+        '400':
+          description: Cannot cancel a running task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                success: false
+                error:
+                  code: "BAD_REQUEST"
+                  message: "Cannot cancel a running task"
+                  status: 400
+                meta:
+                  timestamp: "2024-01-15T14:40:00Z"
+                  requestId: "req_vwx456"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queue/tasks/{id}/logs:
+    get:
+      tags: [Verification Queue]
+      summary: Get task logs
+      description: |
+        Retrieve logs for a specific task. Supports streaming via
+        `Accept: text/event-stream` header for real-time log updates.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "task_001"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [debug, info, warn, error]
+          description: Filter by log level
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Only return logs after this timestamp
+      responses:
+        '200':
+          description: Task logs retrieved (or stream started)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaskLog'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - $ref: '#/components/schemas/PaginationMeta'
+              example:
+                success: true
+                data:
+                  - id: "log_001"
+                    taskId: "task_001"
+                    level: "info"
+                    message: "Task initialization complete"
+                    timestamp: "2024-01-15T13:05:01Z"
+                    metadata:
+                      step: "init"
+                      duration: 0.8
+                  - id: "log_002"
+                    taskId: "task_001"
+                    level: "info"
+                    message: "Starting static analysis phase"
+                    timestamp: "2024-01-15T13:05:15Z"
+                    metadata:
+                      step: "static-analysis"
+                      filesScanned: 1240
+                  - id: "log_003"
+                    taskId: "task_001"
+                    level: "warn"
+                    message: "Deprecated API usage detected in module auth.js:42"
+                    timestamp: "2024-01-15T13:08:22Z"
+                    metadata:
+                      step: "static-analysis"
+                      file: "auth.js"
+                      line: 42
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_yza567"
+                  pagination:
+                    page: 1
+                    limit: 100
+                    total: 45
+                    totalPages: 1
+                    hasNext: false
+                    hasPrev: false
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events stream of log entries
+                example: |
+                  event: log
+                  data: {"id":"log_004","taskId":"task_001","level":"info","message":"Dependency scan started","timestamp":"2024-01-15T13:10:00Z"}
+
+                  event: log
+                  data: {"id":"log_005","taskId":"task_001","level":"info","message":"Scanned 50 of 200 dependencies","timestamp":"2024-01-15T13:10:30Z"}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queue/batch:
+    post:
+      tags: [Verification Queue]
+      summary: Batch operations
+      description: Perform bulk operations (restart, cancel, delete) on selected tasks.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchOperationRequest'
+            example:
+              operation: "restart"
+              taskIds: ["task_004", "task_005", "task_006"]
+      responses:
+        '200':
+          description: Batch operation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [operation, processed, succeeded, failed, errors]
+                    properties:
+                      operation:
+                        type: string
+                        enum: [restart, cancel, delete]
+                      processed:
+                        type: integer
+                        description: Total number of tasks processed
+                      succeeded:
+                        type: integer
+                        description: Number of tasks successfully processed
+                      failed:
+                        type: integer
+                        description: Number of tasks that failed
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            taskId:
+                              type: string
+                            error:
+                              type: string
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  operation: "restart"
+                  processed: 3
+                  succeeded: 3
+                  failed: 0
+                  errors: []
+                meta:
+                  timestamp: "2024-01-15T14:45:00Z"
+                  requestId: "req_bcd678"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queue/counts:
+    get:
+      tags: [Verification Queue]
+      summary: Get task counts by status
+      description: Retrieve counts of tasks grouped by status for tab badges.
+      responses:
+        '200':
+          description: Task counts retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [total, byStatus]
+                    properties:
+                      total:
+                        type: integer
+                      byStatus:
+                        type: array
+                        items:
+                          type: object
+                          required: [status, count, label]
+                          properties:
+                            status:
+                              type: string
+                            count:
+                              type: integer
+                            label:
+                              type: string
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+              example:
+                success: true
+                data:
+                  total: 18
+                  byStatus:
+                    - status: "pending"
+                      count: 8
+                      label: "Pending"
+                    - status: "running"
+                      count: 5
+                      label: "Running"
+                    - status: "completed"
+                      count: 3
+                      label: "Completed"
+                    - status: "failed"
+                      count: 2
+                      label: "Failed"
+                    - status: "cancelled"
+                      count: 0
+                      label: "Cancelled"
+                meta:
+                  timestamp: "2024-01-15T14:20:00Z"
+                  requestId: "req_cde789"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+
+# ============================================================
+# Components
+# ============================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login or /auth/refresh
+
+  schemas:
+    # ----------------------------------------------------------
+    # Shared / Meta
+    # ----------------------------------------------------------
+    Meta:
+      type: object
+      required: [timestamp, requestId]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+
+    PaginationMeta:
+      type: object
+      required: [pagination]
+      properties:
+        pagination:
+          type: object
+          required: [page, limit, total, totalPages, hasNext, hasPrev]
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+            hasNext:
+              type: boolean
+            hasPrev:
+              type: boolean
+
+    ApiError:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required: [code, message, status]
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Invalid request parameters"
+            details:
+              type: string
+              description: Additional error details
+              example: "Field 'email' must be a valid email address"
+            status:
+              type: integer
+              description: HTTP status code
+              example: 400
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    # ----------------------------------------------------------
+    # Auth & Users
+    # ----------------------------------------------------------
+    User:
+      type: object
+      required: [id, email, firstName, lastName, role, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [admin, analyst, viewer]
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+        isActive:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    JWTPayload:
+      type: object
+      required: [sub, email, role, iat, exp]
+      properties:
+        sub:
+          type: string
+          description: User ID
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, analyst, viewer]
+        iat:
+          type: integer
+          description: Issued at timestamp
+        exp:
+          type: integer
+          description: Expiration timestamp
+
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: Must contain uppercase, lowercase, digit, and special character
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          type: string
+          enum: [admin, analyst, viewer]
+          default: "analyst"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    AuthResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [user, token]
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            token:
+              type: object
+              required: [accessToken, refreshToken, expiresIn]
+              properties:
+                accessToken:
+                  type: string
+                refreshToken:
+                  type: string
+                expiresIn:
+                  type: integer
+                  description: Token expiry in seconds
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    # ----------------------------------------------------------
+    # Dashboard & Metrics
+    # ----------------------------------------------------------
+    DashboardMetrics:
+      type: object
+      required: [totalSystems, verifiedSystems, pendingVerifications, failedVerifications, totalEvidence, queueTasks, queueCompletedToday, queueFailedToday]
+      properties:
+        totalSystems:
+          type: integer
+          description: Total number of registered systems
+        verifiedSystems:
+          type: integer
+          description: Number of systems with passed verification
+        pendingVerifications:
+          type: integer
+          description: Number of systems awaiting verification
+        failedVerifications:
+          type: integer
+          description: Number of systems with failed verification
+        totalEvidence:
+          type: integer
+          description: Total number of evidence files uploaded
+        queueTasks:
+          type: integer
+          description: Total number of tasks currently in queue
+        queueCompletedToday:
+          type: integer
+          description: Tasks completed today
+        queueFailedToday:
+          type: integer
+          description: Tasks that failed today
+
+    TrendDataPoint:
+      type: object
+      required: [date, total, passed, failed, pending]
+      properties:
+        date:
+          type: string
+          format: date
+        total:
+          type: integer
+        passed:
+          type: integer
+        failed:
+          type: integer
+        pending:
+          type: integer
+
+    StatusDistribution:
+      type: object
+      required: [status, label, count, percentage]
+      properties:
+        status:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+          format: float
+
+    ActivityItem:
+      type: object
+      required: [id, type, title, description, createdAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [verification, upload, system, queue, user]
+        title:
+          type: string
+        description:
+          type: string
+        userId:
+          type: string
+          nullable: true
+        userName:
+          type: string
+          nullable: true
+        systemId:
+          type: string
+          nullable: true
+        systemName:
+          type: string
+          nullable: true
+        taskId:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # ----------------------------------------------------------
+    # Evidence Upload
+    # ----------------------------------------------------------
+    UploadStatus:
+      type: string
+      enum: [pending, processing, completed, failed]
+
+    EvidenceUpload:
+      type: object
+      required: [id, fileName, originalName, mimeType, size, status, uploadedBy, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        fileName:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+          description: File size in bytes
+        status:
+          $ref: '#/components/schemas/UploadStatus'
+        systemId:
+          type: string
+          nullable: true
+        systemName:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+        uploadedBy:
+          type: string
+        uploaderName:
+          type: string
+        downloadUrl:
+          type: string
+          format: uri
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ----------------------------------------------------------
+    # Portfolio (Systems)
+    # ----------------------------------------------------------
+    SystemType:
+      type: string
+      enum: [web_app, mobile_app, api, database, network, desktop, cloud_service, embedded, other]
+
+    SystemStatus:
+      type: string
+      enum: [verified, pending, failed, not_started, in_progress]
+
+    System:
+      type: object
+      required: [id, name, description, type, status, ownerId, ownerName, version, lastVerifiedAt, evidenceCount, tags, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          $ref: '#/components/schemas/SystemType'
+        status:
+          $ref: '#/components/schemas/SystemStatus'
+        ownerId:
+          type: string
+        ownerName:
+          type: string
+        version:
+          type: string
+        lastVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        evidenceCount:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateSystemRequest:
+      type: object
+      required: [name, description, type]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        type:
+          $ref: '#/components/schemas/SystemType'
+        ownerId:
+          type: string
+          description: Defaults to current user if not provided
+        version:
+          type: string
+          maxLength: 50
+          default: "1.0.0"
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 50
+          maxItems: 20
+        metadata:
+          type: object
+          additionalProperties: true
+
+    UpdateSystemRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        type:
+          $ref: '#/components/schemas/SystemType'
+        ownerId:
+          type: string
+        version:
+          type: string
+          maxLength: 50
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 50
+          maxItems: 20
+        status:
+          $ref: '#/components/schemas/SystemStatus'
+        metadata:
+          type: object
+          additionalProperties: true
+
+    VerificationHistory:
+      type: object
+      required: [id, systemId, systemName, status, verifierId, verifierName, startedAt, completedAt, findingsCount, summary]
+      properties:
+        id:
+          type: string
+        systemId:
+          type: string
+        systemName:
+          type: string
+        status:
+          type: string
+          enum: [passed, failed, cancelled, in_progress]
+        verifierId:
+          type: string
+        verifierName:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        duration:
+          type: integer
+          nullable: true
+          description: Duration in seconds
+        findingsCount:
+          type: integer
+        summary:
+          type: string
+        checkTypes:
+          type: array
+          items:
+            type: string
+
+    EvidenceFile:
+      type: object
+      required: [id, fileName, mimeType, size, uploadedBy, uploadedAt]
+      properties:
+        id:
+          type: string
+        fileName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+        description:
+          type: string
+          nullable: true
+        uploadedBy:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+        downloadUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    # ----------------------------------------------------------
+    # Verification Queue
+    # ----------------------------------------------------------
+    TaskStatus:
+      type: string
+      enum: [pending, running, completed, failed, cancelled]
+
+    TaskPriority:
+      type: string
+      enum: [low, normal, high, critical]
+
+    QueueTask:
+      type: object
+      required: [id, name, systemId, systemName, status, priority, progress, checkTypes, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        systemId:
+          type: string
+        systemName:
+          type: string
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        assigneeId:
+          type: string
+          nullable: true
+        assigneeName:
+          type: string
+          nullable: true
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Completion percentage
+        checkTypes:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        scheduledAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        estimatedDuration:
+          type: integer
+          nullable: true
+          description: Estimated duration in seconds
+
+    CreateTaskRequest:
+      type: object
+      required: [name, systemId, checkTypes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        systemId:
+          type: string
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+          default: "normal"
+        checkTypes:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        scheduledAt:
+          type: string
+          format: date-time
+          nullable: true
+        assigneeId:
+          type: string
+          nullable: true
+
+    UpdateTaskRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        assigneeId:
+          type: string
+          nullable: true
+        scheduledAt:
+          type: string
+          format: date-time
+          nullable: true
+        checkTypes:
+          type: array
+          items:
+            type: string
+
+    TaskLog:
+      type: object
+      required: [id, taskId, level, message, timestamp]
+      properties:
+        id:
+          type: string
+        taskId:
+          type: string
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    BatchOperationRequest:
+      type: object
+      required: [operation, taskIds]
+      properties:
+        operation:
+          type: string
+          enum: [restart, cancel, delete]
+          description: The batch operation to perform
+        taskIds:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 100
+
+  # ----------------------------------------------------------
+  # Reusable Responses
+  # ----------------------------------------------------------
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Invalid request parameters"
+              details: "Field 'email' must be a valid email address"
+              status: 400
+            meta:
+              timestamp: "2024-01-15T14:20:00Z"
+              requestId: "req_err001"
+
+    Unauthorized:
+      description: Unauthorized - missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            error:
+              code: "UNAUTHORIZED"
+              message: "Authentication required"
+              details: "Bearer token is missing or invalid"
+              status: 401
+            meta:
+              timestamp: "2024-01-15T14:20:00Z"
+              requestId: "req_err002"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            error:
+              code: "FORBIDDEN"
+              message: "Insufficient permissions"
+              details: "Admin role required for this operation"
+              status: 403
+            meta:
+              timestamp: "2024-01-15T14:20:00Z"
+              requestId: "req_err003"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            error:
+              code: "NOT_FOUND"
+              message: "Resource not found"
+              details: "The requested resource does not exist"
+              status: 404
+            meta:
+              timestamp: "2024-01-15T14:20:00Z"
+              requestId: "req_err004"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            error:
+              code: "INTERNAL_ERROR"
+              message: "An unexpected error occurred"
+              status: 500
+            meta:
+              timestamp: "2024-01-15T14:20:00Z"
+              requestId: "req_err005"

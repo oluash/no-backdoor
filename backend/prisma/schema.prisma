@@ -1,0 +1,275 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// No-Backdoor System — Prisma Schema
+// Mirrors the existing raw SQL schema exactly so Prisma Migrate can
+// manage the database lifecycle on Railway.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  admin    @map("admin")
+  reviewer @map("reviewer")
+  viewer   @map("viewer")
+
+  @@map("user_role")
+}
+
+enum SystemType {
+  api            @map("api")
+  web            @map("web")
+  mobile         @map("mobile")
+  database       @map("database")
+  infrastructure @map("infrastructure")
+  library        @map("library")
+  other          @map("other")
+
+  @@map("system_type")
+}
+
+enum SystemStatus {
+  verified @map("verified")
+  pending  @map("pending")
+  threat   @map("threat")
+  unknown  @map("unknown")
+
+  @@map("system_status")
+}
+
+enum EvidenceType {
+  code_scan        @map("code_scan")
+  audit_report     @map("audit_report")
+  penetration_test @map("penetration_test")
+  config_review    @map("config_review")
+  dependency_check @map("dependency_check")
+  static_analysis  @map("static_analysis")
+  dynamic_analysis @map("dynamic_analysis")
+
+  @@map("evidence_type")
+}
+
+enum EvidenceStatus {
+  pending    @map("pending")
+  processing @map("processing")
+  verified   @map("verified")
+  failed     @map("failed")
+
+  @@map("evidence_status")
+}
+
+enum EvidencePriority {
+  low    @map("low")
+  medium @map("medium")
+  high   @map("high")
+
+  @@map("evidence_priority")
+}
+
+enum HistoryEventType {
+  scan_initiated   @map("scan_initiated")
+  scan_completed   @map("scan_completed")
+  review_started   @map("review_started")
+  review_completed @map("review_completed")
+  threat_detected  @map("threat_detected")
+  resolved         @map("resolved")
+
+  @@map("history_event_type")
+}
+
+enum TaskType {
+  code_scan        @map("code_scan")
+  audit_report     @map("audit_report")
+  penetration_test @map("penetration_test")
+  config_review    @map("config_review")
+  dependency_check @map("dependency_check")
+  static_analysis  @map("static_analysis")
+  dynamic_analysis @map("dynamic_analysis")
+
+  @@map("task_type")
+}
+
+enum TaskPriority {
+  low      @map("low")
+  normal   @map("normal")
+  high     @map("high")
+  critical @map("critical")
+
+  @@map("task_priority")
+}
+
+enum TaskStatus {
+  pending    @map("pending")
+  processing @map("processing")
+  completed  @map("completed")
+  failed     @map("failed")
+  cancelled  @map("cancelled")
+
+  @@map("task_status")
+}
+
+enum LogLevel {
+  info    @map("info")
+  warn    @map("warn")
+  error   @map("error")
+  success @map("success")
+
+  @@map("log_level")
+}
+
+// ── Tables ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name") @db.VarChar(100)
+  lastName     String    @map("last_name") @db.VarChar(100)
+  role         UserRole  @default(viewer)
+  avatarUrl    String?   @map("avatar_url")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  lastLogin    DateTime? @map("last_login") @db.Timestamptz()
+
+  // Relations
+  systemsCreated    System[]
+  systemsAssigned   System[]            @relation("assignedSystems")
+  evidenceUploads   EvidenceUpload[]
+  historyEvents     VerificationHistory[]
+  tasksCreated      VerificationTask[]  @relation("taskCreator")
+  tasksAssigned     VerificationTask[]  @relation("taskAssignee")
+  activityLogs      ActivityLog[]
+
+  @@map("users")
+}
+
+model System {
+  id                String       @id @default(uuid()) @db.Uuid
+  name              String       @db.VarChar(255)
+  version           String?      @db.VarChar(50)
+  description       String?      @db.Text
+  type              SystemType   @default(other)
+  status            SystemStatus @default(unknown)
+  verificationScore Int          @default(0) @map("verification_score") @db.SmallInt
+  tags              String[]     @default([]) @db.Text
+  createdById       String?      @map("created_by") @db.Uuid
+  assignedToId      String?      @map("assigned_to") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  createdBy   User?                @relation(fields: [createdById], references: [id])
+  assignedTo  User?                @relation("assignedSystems", fields: [assignedToId], references: [id])
+  evidence    EvidenceUpload[]
+  history     VerificationHistory[]
+  tasks       VerificationTask[]
+
+  @@map("systems")
+}
+
+model EvidenceUpload {
+  id            String           @id @default(uuid()) @db.Uuid
+  systemId      String           @map("system_id") @db.Uuid
+  uploadedById  String?          @map("uploaded_by") @db.Uuid
+  filename      String           @db.VarChar(500)
+  originalName  String           @map("original_name") @db.VarChar(500)
+  filePath      String           @map("file_path")
+  fileSize      BigInt           @default(0) @map("file_size")
+  mimeType      String?          @map("mime_type") @db.VarChar(255)
+  evidenceType  EvidenceType     @map("evidence_type")
+  description   String?          @db.Text
+  priority      EvidencePriority @default(medium)
+  tags          String[]         @default([]) @db.Text
+  status        EvidenceStatus   @default(pending)
+  checksum      String?          @db.VarChar(64)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  processedAt   DateTime?        @map("processed_at") @db.Timestamptz()
+
+  // Relations
+  system     System @relation(fields: [systemId], references: [id])
+  uploadedBy User?  @relation(fields: [uploadedById], references: [id])
+
+  @@map("evidence_uploads")
+}
+
+model VerificationHistory {
+  id          String           @id @default(uuid()) @db.Uuid
+  systemId    String           @map("system_id") @db.Uuid
+  eventType   HistoryEventType @map("event_type")
+  description String?          @db.Text
+  performedById String?        @map("performed_by") @db.Uuid
+  metadata    Json?            @default("{}") @db.JsonB
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+
+  // Relations
+  system      System @relation(fields: [systemId], references: [id])
+  performedBy User?  @relation(fields: [performedById], references: [id])
+
+  @@map("verification_history")
+}
+
+model VerificationTask {
+  id                 String       @id @default(uuid()) @db.Uuid
+  taskId             String       @unique @map("task_id") @db.VarChar(20)
+  systemId           String       @map("system_id") @db.Uuid
+  taskType           TaskType     @map("task_type")
+  priority           TaskPriority @default(normal)
+  status             TaskStatus   @default(pending)
+  progress           Int          @default(0) @db.SmallInt
+  assignedToId       String?      @map("assigned_to") @db.Uuid
+  createdById        String       @map("created_by") @db.Uuid
+  startedAt          DateTime?    @map("started_at") @db.Timestamptz()
+  completedAt        DateTime?    @map("completed_at") @db.Timestamptz()
+  estimatedCompletion DateTime?   @map("estimated_completion") @db.Timestamptz()
+  resultSummary      String?      @map("result_summary") @db.Text
+  errorMessage       String?      @map("error_message") @db.Text
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  system      System      @relation(fields: [systemId], references: [id])
+  assignedTo  User?       @relation("taskAssignee", fields: [assignedToId], references: [id])
+  createdBy   User        @relation("taskCreator", fields: [createdById], references: [id])
+  logs        TaskLog[]
+
+  @@map("verification_tasks")
+}
+
+model TaskLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  level     LogLevel @default(info)
+  message   String
+  metadata  Json?    @default("{}") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  // Relations
+  task VerificationTask @relation(fields: [taskId], references: [id])
+
+  @@map("task_logs")
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  actionType String   @map("action_type") @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(100)
+  entityId   String?  @map("entity_id") @db.Uuid
+  description String? @db.Text
+  metadata   Json?    @default("{}") @db.JsonB
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  // Relations
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@map("activity_log")
+}

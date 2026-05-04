@@ -1,0 +1,6 @@
+FROM node:22-alpine AS debug
+WORKDIR /app
+COPY package.json ./
+RUN npm install
+COPY . .
+RUN npx vite build 2>&1 || true

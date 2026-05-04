@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 30% 7%;
+    --foreground: 210 40% 96%;
+    --card: 220 20% 9%;
+    --card-foreground: 210 40% 96%;
+    --popover: 220 20% 9%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 220 30% 7%;
+    --secondary: 220 20% 15%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 220 20% 15%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 220 20% 15%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 215 20% 20%;
+    --input: 220 25% 10%;
+    --ring: 217 91% 60%;
+    --radius: 0.5rem;
+    --sidebar-background: 220 20% 9%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 15%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 215 20% 20%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Custom design tokens */
+    --bg-base: #0B0F19;
+    --bg-surface: #111827;
+    --bg-elevated: #1A2235;
+    --bg-input: #0E1525;
+    --border-subtle: #1E293B;
+    --border-active: #334155;
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --text-inverse: #0B0F19;
+    --accent-verified: #10B981;
+    --accent-verified-dim: rgba(16, 185, 129, 0.12);
+    --accent-pending: #F59E0B;
+    --accent-pending-dim: rgba(245, 158, 11, 0.12);
+    --accent-threat: #EF4444;
+    --accent-threat-dim: rgba(239, 68, 68, 0.12);
+    --accent-primary: #3B82F6;
+    --accent-primary-dim: rgba(59, 130, 246, 0.12);
+    --chart-verified: #10B981;
+    --chart-pending: #F59E0B;
+    --chart-threat: #EF4444;
+    --chart-neutral: #3B82F6;
+    --chart-grid: #1E293B;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    font-family: 'Inter Variable', system-ui, sans-serif;
+    background-color: #0B0F19;
+    color: #F1F5F9;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbar styling for dark theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0B0F19;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1E293B;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+  }
+}
